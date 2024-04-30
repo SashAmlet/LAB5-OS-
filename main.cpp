@@ -1,5 +1,6 @@
 #include <iostream>
 #include <sys/socket.h>
+#include <unistd.h>
 #include <netinet/in.h>
 #include <unistd.h>
 #include <cstring>
@@ -41,9 +42,33 @@ int main(int argc, char* argv[]) {
     }
 
     // Основний процес
-    int status_f, status_g;
-    waitpid(pid_f, &status_f, 0); // Чекаємо завершення f
-    waitpid(pid_g, &status_g, 0); // Чекаємо завершення g
+    int status_f, status_g, wait_time = 0;
+    bool b1, b2;
+    while (true)
+    {
+        b1 = waitpid(pid_f, &status_f, WNOHANG) == 0;
+        b2 = waitpid(pid_g, &status_g, WNOHANG) == 0;
+        if (b1 || b2) // Чекаємо завершення f та g
+        {
+            if (wait_time >= 10) {
+                std::cout << "Програма виконується більше 10 секунд. Чи бажаєте ви чекати далі? (y/n): ";
+                char response;
+                std::cin >> response;
+                if (response == 'n' || response == 'N') {
+                    if (b1){kill(pid_f, SIGKILL); }
+                    if (b2){kill(pid_g, SIGKILL); }
+                    
+                    std::cout << "Програму було прервано.\n";
+                    break;
+                }
+                wait_time = 0;
+            }
+        }
+        else break;
+
+        ++wait_time;
+        sleep(1);
+    }
 
     bool result_f = WIFEXITED(status_f) && WEXITSTATUS(status_f) == 1;
     bool result_g = WIFEXITED(status_g) && WEXITSTATUS(status_g) == 1;
